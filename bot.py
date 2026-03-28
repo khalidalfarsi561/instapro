@@ -26,7 +26,7 @@ import os
 import random
 import time
 from http import HTTPStatus
-from typing import Any
+from typing import Any, AsyncIterator
 
 import httpx
 from dotenv import load_dotenv
@@ -131,16 +131,34 @@ def is_session_expired(status_code: int) -> bool:
     return status_code in {401, 403}
 
 
-async def fetch_paginated_users(
+def build_progress_bar(current: int, total: int, width: int = 8) -> str:
+    """Build a compact text progress bar."""
+    if total <= 0:
+        return f"[{'░' * width}] 0%"
+    ratio = max(0.0, min(1.0, current / total))
+    filled = min(width, int(round(ratio * width)))
+    empty = max(0, width - filled)
+    return f"[{'█' * filled}{'░' * empty}] {int(ratio * 100)}%"
+
+
+async def async_db_call(method_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Run blocking Google Sheets operations in a thread."""
+    def _runner() -> Any:
+        db = GoogleSheetsDB()
+        method = getattr(db, method_name)
+        return method(*args, **kwargs)
+
+    return await asyncio.to_thread(_runner)
+
+
+async def iter_paginated_users(
     client: httpx.AsyncClient,
     endpoint: str,
     user_record: UserRecord,
-) -> dict[str, str]:
-    """Fetch all users from a paginated Instagram friendship endpoint.
-
-    Returns a mapping of user_id -> username.
-    """
-    users: dict[str, str] = {}
+    *,
+    human_delay_range: tuple[float, float] = (0.35, 1.1),
+) -> AsyncIterator[tuple[str, str]]:
+    """Yield paginated Instagram users one-by-one without keeping whole pages in memory."""
     next_max_id: str | None = None
 
     while True:
@@ -166,12 +184,36 @@ async def fetch_paginated_users(
             user_id = str(user.get("pk", "")).strip()
             username = str(user.get("username", "")).strip()
             if user_id:
-                users[user_id] = username or user_id
+                yield user_id, username or user_id
 
         next_max_id = payload.get("next_max_id")
         if not next_max_id:
             break
 
+        await asyncio.sleep(random.uniform(*human_delay_range))
+
+
+async def fetch_paginated_users(
+    client: httpx.AsyncClient,
+    endpoint: str,
+    user_record: UserRecord,
+    *,
+    as_set: bool = False,
+) -> dict[str, str] | set[str]:
+    """Fetch all users from a paginated Instagram friendship endpoint.
+
+    Returns a mapping of user_id -> username by default.
+    When as_set=True, returns only user IDs to reduce memory usage for large accounts.
+    """
+    if as_set:
+        users_set: set[str] = set()
+        async for user_id, _username in iter_paginated_users(client, endpoint, user_record):
+            users_set.add(user_id)
+        return users_set
+
+    users: dict[str, str] = {}
+    async for user_id, username in iter_paginated_users(client, endpoint, user_record):
+        users[user_id] = username
     return users
 
 
@@ -269,22 +311,34 @@ def build_hunt_preview_keyboard(session: dict[str, Any]) -> InlineKeyboardMarkup
 def format_dashboard_text(user_record: UserRecord | None) -> str:
     """Return rich dashboard text for /start and /help."""
     if user_record is None:
-        status_line = "• حالة الربط: <b>غير مربوط</b>"
-        hunt_line = "• لبدء الاستخدام: اضغط <b>🔗 ربط الحساب</b> أولاً"
+        status_badge = "🔴 <b>غير مربوط</b>"
+        action_hint = "اربط حسابك أولاً لفتح أدوات الصيد والتقارير."
+        last_run_line = "⏱️ آخر تشغيل: <code>لم يتم بعد</code>"
+        whitelist_line = "📋 الاستثناءات المحفوظة: <b>0</b>"
     else:
-        status_line = "• حالة الربط: <b>جاهز</b> ✅"
-        hunt_line = f"• آخر تشغيل: <code>{user_record.last_run or 'لم يتم بعد'}</code>"
+        whitelist_count = len(parse_whitelist_csv(getattr(user_record, "whitelist", "")))
+        status_badge = "🟢 <b>جاهز للصيد</b>"
+        action_hint = "كل شيء جاهز. ابدأ الفحص الآن أو راجع الاستثناءات والإحصائيات."
+        last_run_line = f"⏱️ آخر تشغيل: <code>{user_record.last_run or 'لم يتم بعد'}</code>"
+        whitelist_line = f"📋 الاستثناءات المحفوظة: <b>{whitelist_count}</b>"
 
     return (
-        "✨ <b>لوحة تحكم InstaPro</b>\n\n"
-        "صيد الحسابات الوهمية أصبح أسهل الآن:\n"
-        f"{status_line}\n"
-        f"{hunt_line}\n\n"
-        "اختر الإجراء المناسب من الأزرار بالأسفل:\n"
-        "• <b>🚀 بدء الصيد</b> لاكتشاف غير المتابعين لك\n"
-        "• <b>🔗 ربط الحساب</b> للحصول على رابط الربط أو الربط اليدوي\n"
-        "• <b>📋 قائمة الاستثناءات</b> لمراجعة الحسابات المستثناة\n"
-        "• <b>📊 الإحصائيات</b> لعرض حالة حسابك المسجل"
+        "✨ <b>لوحة تحكم InstaPro</b>\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "🧭 <b>الحالة الحالية</b>\n"
+        f"{status_badge}\n"
+        f"{last_run_line}\n"
+        f"{whitelist_line}\n\n"
+        "⚡ <b>ماذا يمكنك أن تفعل الآن؟</b>\n"
+        f"• {action_hint}\n"
+        "• متابعة تقدم الصيد لحظة بلحظة\n"
+        "• مراجعة الحسابات المستثناة قبل الحذف\n"
+        "• الحصول على ملخص نهائي واضح بعد انتهاء المهمة\n\n"
+        "👇 <b>اختر من الأزرار بالأسفل:</b>\n"
+        "• <b>🚀 بدء الصيد</b>\n"
+        "• <b>🔗 ربط الحساب</b>\n"
+        "• <b>📋 قائمة الاستثناءات</b>\n"
+        "• <b>📊 الإحصائيات</b>"
     )
 
 
@@ -388,11 +442,12 @@ def format_ghost_preview_text(session: dict[str, Any]) -> str:
 
     body = "\n".join(lines) if lines else "لا توجد عناصر في هذه الصفحة."
     return (
-        "👻 <b>معاينة نتائج الصيد</b>\n\n"
-        f"إجمالي الحسابات الوهمية: <b>{len(ghosts)}</b>\n"
-        f"المستثنى حالياً: <b>{selected_skip}</b>\n"
-        f"الجاهز للحذف: <b>{removable}</b>\n"
-        f"الصفحة: <b>{page + 1}/{total_pages}</b>\n\n"
+        "👻 <b>معاينة نتائج الصيد</b>\n"
+        "━━━━━━━━━━━━━━\n\n"
+        f"📌 إجمالي الحسابات الوهمية: <b>{len(ghosts)}</b>\n"
+        f"✅ المستثنى حالياً: <b>{selected_skip}</b>\n"
+        f"🧹 الجاهز للحذف: <b>{removable}</b>\n"
+        f"📄 الصفحة: <b>{page + 1}/{total_pages}</b>\n\n"
         f"{body}\n\n"
         "اضغط على أي حساب لإضافته أو إزالته من قائمة الاستثناءات، ثم اختر <b>🧹 بدء الحذف</b>."
     )
@@ -411,7 +466,7 @@ async def send_or_edit_dashboard(
 
     if user_record is None:
         try:
-            user_record = GoogleSheetsDB().get_user_by_telegram_id(telegram_user.id)
+            user_record = await async_db_call("get_user_by_telegram_id", telegram_user.id)
         except Exception as exc:
             logger.exception("Failed to load user for dashboard: %s", exc)
             user_record = None
@@ -506,8 +561,8 @@ async def link_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     try:
-        db = GoogleSheetsDB()
-        db.upsert_user(
+        await async_db_call(
+            "upsert_user",
             telegram_id=str(user.id),
             insta_id=insta_id,
             cookie=cookie,
@@ -540,8 +595,7 @@ async def start_hunt_preview(
         return
 
     try:
-        db = GoogleSheetsDB()
-        user_record = db.get_user_by_telegram_id(telegram_user.id)
+        user_record = await async_db_call("get_user_by_telegram_id", telegram_user.id)
     except Exception as exc:
         logger.exception("Database initialization or lookup failed: %s", exc)
         if use_edit and update.callback_query is not None:
@@ -584,6 +638,7 @@ async def start_hunt_preview(
                 client,
                 f"/api/v1/friendships/{user_record.insta_id}/followers/",
                 user_record,
+                as_set=True,
             )
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
@@ -598,10 +653,14 @@ async def start_hunt_preview(
             await status_message.edit_text("Unexpected error while fetching Instagram data.")
             return
 
-    ghost_ids = sorted(set(following.keys()) - set(followers.keys()))
+    if not isinstance(following, dict) or not isinstance(followers, set):
+        await status_message.edit_text("Unexpected Instagram response format.")
+        return
+
+    ghost_ids = sorted(set(following.keys()) - followers)
     if not ghost_ids:
         try:
-            db.update_last_run(telegram_user.id, dt.datetime.now(dt.timezone.utc).isoformat())
+            await async_db_call("update_last_run", telegram_user.id, dt.datetime.now(dt.timezone.utc).isoformat())
         except Exception as exc:
             logger.exception("Failed to update last_run after empty hunt: %s", exc)
         await status_message.edit_text(
@@ -652,9 +711,15 @@ async def execute_cleanup(
         for index, ghost in enumerate(removable, start=1):
             username = ghost["username"]
             ghost_id = ghost["id"]
+            progress_bar = build_progress_bar(index - 1, total)
+            estimated_remaining = max(0, total - index + 1)
 
             await query_message.edit_text(
-                f"جاري فحص {index}/{total}...\n\nالآن يتم حذف @{username}",
+                "🧹 <b>عملية الحذف جارية</b>\n\n"
+                f"📊 التقدم: <code>{progress_bar}</code>\n"
+                f"🔢 العنصر الحالي: <b>{index}/{total}</b>\n"
+                f"👤 الآن يتم حذف: <b>@{username}</b>\n"
+                f"⏳ متبقٍ تقريبي: <b>{estimated_remaining}</b> حساب",
                 parse_mode=ParseMode.HTML,
             )
 
@@ -671,15 +736,25 @@ async def execute_cleanup(
 
             if not session_expired:
                 removed_count += 1
-                await asyncio.sleep(random.randint(30, 60))
+                if index < total:
+                    await asyncio.sleep(random.uniform(45, 90))
+
+        if total > 0 and not session_expired:
+            await query_message.edit_text(
+                "🧹 <b>اللمسات الأخيرة...</b>\n\n"
+                f"📊 التقدم: <code>{build_progress_bar(total, total)}</code>\n"
+                "يتم الآن حفظ التقرير وتحديث البيانات.",
+                parse_mode=ParseMode.HTML,
+            )
 
     elapsed = time.perf_counter() - cleanup_started_at
 
     try:
-        db = GoogleSheetsDB()
-        db.update_last_run(telegram_id, dt.datetime.now(dt.timezone.utc).isoformat())
-        if hasattr(db, "update_whitelist"):
-            db.update_whitelist(telegram_id, build_whitelist_csv(whitelist_ids))
+        await async_db_call("update_last_run", telegram_id, dt.datetime.now(dt.timezone.utc).isoformat())
+        try:
+            await async_db_call("update_whitelist", telegram_id, build_whitelist_csv(whitelist_ids))
+        except AttributeError:
+            pass
     except Exception as exc:
         logger.exception("Failed to update post-hunt metadata: %s", exc)
 
@@ -697,8 +772,7 @@ async def dashboard_callback_handler(update: Update, context: ContextTypes.DEFAU
 
     data = query.data or ""
     try:
-        db = GoogleSheetsDB()
-        user_record = db.get_user_by_telegram_id(telegram_user.id)
+        user_record = await async_db_call("get_user_by_telegram_id", telegram_user.id)
     except Exception as exc:
         logger.exception("Failed to initialize DB during callback: %s", exc)
         await query.edit_message_text("Unable to access the database right now. Please try again later.")
@@ -801,11 +875,12 @@ async def dashboard_callback_handler(update: Update, context: ContextTypes.DEFAU
             return
 
         whitelist_ids = set(session["whitelist_ids"])
-        if hasattr(db, "update_whitelist"):
-            try:
-                db.update_whitelist(telegram_user.id, build_whitelist_csv(whitelist_ids))
-            except Exception as exc:
-                logger.exception("Failed to persist whitelist before cleanup: %s", exc)
+        try:
+            await async_db_call("update_whitelist", telegram_user.id, build_whitelist_csv(whitelist_ids))
+        except AttributeError:
+            pass
+        except Exception as exc:
+            logger.exception("Failed to persist whitelist before cleanup: %s", exc)
 
         removable_count = len([ghost for ghost in session["ghosts"] if ghost["id"] not in whitelist_ids])
         if removable_count == 0:
@@ -829,13 +904,19 @@ async def dashboard_callback_handler(update: Update, context: ContextTypes.DEFAU
             await query.message.edit_text(SESSION_EXPIRED_MESSAGE, reply_markup=build_dashboard_keyboard())
             return
 
+        started_at = float(session.get("started_at", time.perf_counter()))
+        total_session_elapsed = max(elapsed, time.perf_counter() - started_at)
+        time_saved_seconds = skipped_count * 60
+
         await query.message.edit_text("✅ تم الانتهاء من عملية الصيد.", reply_markup=build_dashboard_keyboard())
         await query.message.reply_text(
-            "📄 <b>تقرير الصيد</b>\n\n"
-            f"• إجمالي الحسابات الوهمية: <b>{total_ghosts}</b>\n"
-            f"• تم الحذف: <b>{removed_count}</b>\n"
-            f"• تم التخطي/الاستثناء: <b>{skipped_count}</b>\n"
-            f"• الزمن المستغرق: <b>{elapsed:.1f}</b> ثانية",
+            "📄 <b>تقرير الصيد النهائي</b>\n"
+            "━━━━━━━━━━━━━━\n\n"
+            f"🔎 Total Scanned: <b>{total_ghosts}</b>\n"
+            f"🗑️ Actually Removed: <b>{removed_count}</b>\n"
+            f"✅ Whitelisted: <b>{skipped_count}</b>\n"
+            f"⚡ Time Saved: <b>{time_saved_seconds // 60}</b> دقيقة و <b>{time_saved_seconds % 60}</b> ثانية\n"
+            f"⏱️ الزمن المستغرق: <b>{total_session_elapsed:.1f}</b> ثانية",
             parse_mode=ParseMode.HTML,
             reply_markup=build_dashboard_keyboard(),
         )
@@ -893,8 +974,8 @@ async def login_data_message_handler(update: Update, context: ContextTypes.DEFAU
     await message.reply_text("Saving to Sheets...")
 
     try:
-        db = GoogleSheetsDB()
-        db.upsert_user(
+        await async_db_call(
+            "upsert_user",
             telegram_id=telegram_id,
             insta_id=insta_id,
             cookie=cookie,

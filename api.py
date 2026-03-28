@@ -305,13 +305,17 @@ async def register(
                 --bg-a: #f5f3ff;
                 --bg-b: #eff6ff;
                 --bg-c: #f8fafc;
-                --card-bg: rgba(255, 255, 255, 0.95);
+                --card-bg: rgba(255, 255, 255, 0.96);
                 --text-main: #0f172a;
                 --text-muted: #475569;
                 --primary: #7c3aed;
                 --primary-soft: #ede9fe;
+                --primary-deep: #5b21b6;
                 --success: #059669;
                 --success-soft: #ecfdf5;
+                --success-border: #a7f3d0;
+                --info-soft: #eff6ff;
+                --info-border: #bfdbfe;
                 --warning-bg: #fff7ed;
                 --warning-border: #fdba74;
                 --border: #e2e8f0;
@@ -339,12 +343,12 @@ async def register(
 
             .wrapper {
                 width: 100%;
-                max-width: 840px;
+                max-width: 920px;
             }
 
             .card {
                 background: var(--card-bg);
-                border: 1px solid rgba(255, 255, 255, 0.9);
+                border: 1px solid rgba(255, 255, 255, 0.92);
                 border-radius: 30px;
                 padding: 32px 26px 24px;
                 box-shadow: var(--shadow);
@@ -377,7 +381,7 @@ async def register(
                 gap: 8px;
                 background: var(--success-soft);
                 color: var(--success);
-                border: 1px solid #a7f3d0;
+                border: 1px solid var(--success-border);
                 border-radius: 999px;
                 padding: 8px 14px;
                 font-size: 14px;
@@ -404,13 +408,15 @@ async def register(
                 color: var(--text-main);
             }
 
-            .steps {
+            .steps,
+            .features {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
                 gap: 14px;
             }
 
-            .step-card {
+            .step-card,
+            .feature-card {
                 background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
                 border: 1px solid #dbeafe;
                 border-radius: 20px;
@@ -418,7 +424,8 @@ async def register(
                 box-shadow: 0 10px 24px rgba(59, 130, 246, 0.08);
             }
 
-            .step-number {
+            .step-number,
+            .feature-icon {
                 width: 36px;
                 height: 36px;
                 border-radius: 12px;
@@ -431,16 +438,69 @@ async def register(
                 margin-bottom: 12px;
             }
 
-            .step-card h3 {
+            .feature-icon {
+                font-size: 18px;
+            }
+
+            .step-card h3,
+            .feature-card h3 {
                 margin: 0 0 8px;
                 font-size: 17px;
             }
 
-            .step-card p {
+            .step-card p,
+            .feature-card p {
                 margin: 0;
                 font-size: 14px;
                 line-height: 1.9;
                 color: var(--text-muted);
+            }
+
+            .highlight-box {
+                margin-top: 22px;
+                background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(59, 130, 246, 0.08));
+                border: 1px solid rgba(124, 58, 237, 0.16);
+                border-radius: 22px;
+                padding: 18px 16px;
+            }
+
+            .highlight-box h3 {
+                margin: 0 0 8px;
+                font-size: 18px;
+                color: var(--primary-deep);
+            }
+
+            .highlight-box p {
+                margin: 0;
+                font-size: 15px;
+                line-height: 1.9;
+                color: var(--text-muted);
+            }
+
+            .progress-preview {
+                margin-top: 12px;
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 14px;
+                border-radius: 14px;
+                background: #ffffff;
+                border: 1px solid rgba(124, 58, 237, 0.14);
+                color: var(--primary-deep);
+                font-weight: bold;
+                font-size: 14px;
+                direction: ltr;
+            }
+
+            .info-panel {
+                margin-top: 22px;
+                background: var(--info-soft);
+                border: 1px solid var(--info-border);
+                border-radius: 18px;
+                padding: 18px 16px;
+                font-size: 15px;
+                line-height: 1.9;
+                color: #1e3a8a;
             }
 
             .note {
@@ -481,6 +541,10 @@ async def register(
                 color: #334155;
             }
 
+            strong {
+                color: var(--text-main);
+            }
+
             @media (max-width: 640px) {
                 body {
                     padding: 16px;
@@ -508,6 +572,13 @@ async def register(
                 .lead {
                     font-size: 16px;
                 }
+
+                .progress-preview {
+                    width: 100%;
+                    justify-content: center;
+                    text-align: center;
+                    flex-wrap: wrap;
+                }
             }
         </style>
     </head>
@@ -521,9 +592,47 @@ async def register(
                         <h1>تم ربط حساب إنستجرام بنجاح</h1>
                         <p class="lead">
                             تم التحقق من الجلسة الخاصة بك وحفظها داخل النظام بنجاح. الآن يمكنك الرجوع إلى تيليجرام
-                            ومتابعة الاستخدام من لوحة التحكم بسهولة.
+                            والاستفادة من لوحة التحكم المطورة لمتابعة الحساب، إدارة الصيد، ومراجعة التفاصيل بشكل أوضح وأسهل.
                         </p>
                     </div>
+                </div>
+
+                <div class="highlight-box">
+                    <h3>🚀 ماذا أصبح متاحًا لك الآن؟</h3>
+                    <p>
+                        بعد نجاح الربط، ستجد داخل البوت <strong>لوحة تحكم مطورة</strong> تعرض حالة الحساب بشكل أفضل،
+                        مع <strong>متابعة مباشرة لتقدم الصيد</strong>، و<strong>تقارير نهائية أكثر تفصيلًا</strong>،
+                        بالإضافة إلى <strong>إدارة قائمة الـ Whitelist</strong> من تيليجرام بسهولة.
+                    </p>
+                    <div class="progress-preview">[██████░░░░] 60% • Live Hunting Progress</div>
+                </div>
+
+                <h2 class="section-title">✨ المميزات الجديدة داخل البوت</h2>
+
+                <div class="features">
+                    <article class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h3>لوحة تحكم مطورة</h3>
+                        <p>عرض أوضح لمعلومات الحساب والحالة العامة مع تنظيم أفضل لخيارات التحكم من داخل تيليجرام.</p>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="feature-icon">🟢</div>
+                        <h3>تقدم الصيد بشكل مباشر</h3>
+                        <p>أثناء التشغيل ستظهر لك تحديثات مرئية أوضح تشمل نسبة التقدم وحالة التنفيذ لحظة بلحظة.</p>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="feature-icon">🧾</div>
+                        <h3>تقارير نهائية مفصلة</h3>
+                        <p>بعد انتهاء الصيد ستحصل على ملخص يشمل عدد المفحوصين، المحذوفين فعليًا، المستثنين، والوقت الموفر.</p>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="feature-icon">🛡️</div>
+                        <h3>إدارة الـ Whitelist</h3>
+                        <p>يمكنك إضافة أو تحديث الحسابات المستثناة للحفاظ على الأشخاص المهمين وعدم المساس بهم أثناء الصيد.</p>
+                    </article>
                 </div>
 
                 <h2 class="section-title">✨ الخطوات التالية</h2>
@@ -532,20 +641,26 @@ async def register(
                     <article class="step-card">
                         <div class="step-number">1</div>
                         <h3>📲 العودة إلى تيليجرام</h3>
-                        <p>ارجع إلى محادثة البوت بعد إتمام الربط من المتصفح.</p>
+                        <p>ارجع الآن إلى محادثة البوت، فقد تم إرسال إشعار نجاح الربط إلى تيليجرام.</p>
                     </article>
 
                     <article class="step-card">
                         <div class="step-number">2</div>
                         <h3>🧭 فتح لوحة التحكم</h3>
-                        <p>استخدم <strong>/start</strong> أو <strong>/help</strong> لعرض لوحة التحكم الرئيسية.</p>
+                        <p>استخدم <strong>/start</strong> أو <strong>/help</strong> لعرض اللوحة المطورة ومراجعة حالة حسابك.</p>
                     </article>
 
                     <article class="step-card">
                         <div class="step-number">3</div>
-                        <h3>🚀 ربط الحساب / بدء الصيد</h3>
-                        <p>من داخل اللوحة يمكنك متابعة الربط أو بدء الصيد وإدارة الخيارات المتاحة.</p>
+                        <h3>⚙️ ضبط الاستثناءات والبدء</h3>
+                        <p>راجع الـ <strong>Whitelist</strong> أولًا، ثم ابدأ الصيد وتابع التقدم والتقارير من داخل البوت.</p>
                     </article>
+                </div>
+
+                <div class="info-panel">
+                    <strong>📌 تذكير سريع:</strong>
+                    جميع الخطوات التالية تتم من داخل تيليجرام. بعد هذه الصفحة لا تحتاج إلى أي إعداد إضافي في المتصفح
+                    إلا إذا أردت إعادة الربط لاحقًا.
                 </div>
 
                 <div class="note">
@@ -555,14 +670,15 @@ async def register(
                 </div>
 
                 <div class="tips">
-                    <div class="tip">💡 احفظ الرابط في المفضلة أولًا</div>
-                    <div class="tip">🔐 استخدمه فقط أثناء تسجيل الدخول</div>
-                    <div class="tip">🤖 أكمل الخطوات من داخل تيليجرام</div>
+                    <div class="tip">📊 راقب لوحة التحكم من تيليجرام</div>
+                    <div class="tip">🟢 تابع تقدم الصيد المباشر</div>
+                    <div class="tip">🛡️ حدّث الـ Whitelist قبل البدء</div>
+                    <div class="tip">🧾 راجع التقرير النهائي بعد كل عملية</div>
                 </div>
 
                 <div class="footer-box">
                     إذا احتجت إعادة الربط لاحقًا، افتح إنستجرام من المتصفح، تأكد أنك داخل حسابك، ثم اضغط على الـ Bookmarklet
-                    مرة أخرى وبعدها تابع من البوت في تيليجرام.
+                    مرة أخرى وبعدها أكمل من البوت في تيليجرام. أمّا الآن، فخطوتك التالية هي الرجوع إلى البوت وفتح لوحة التحكم المطورة.
                 </div>
             </section>
         </main>

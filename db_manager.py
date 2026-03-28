@@ -123,13 +123,17 @@ class GoogleSheetsDB:
                 "Verify the sheet name and ensure the service account has access."
             ) from exc
 
+    def _normalize_header_value(self, value: Any) -> str:
+        """Normalize a header cell for case-insensitive schema comparisons."""
+        return str(value).strip().lower()
+
     def _ensure_headers(self) -> None:
         """Ensure the first row contains the required headers.
 
         If the sheet is blank, the full required header row is created.
-        If headers match the previous 5-column schema, the missing whitelist
-        header is appended without disturbing existing data.
-        If headers are otherwise incompatible, an error is raised.
+        Existing headers are validated case-insensitively and normalized to the
+        canonical schema casing/order. Missing trailing schema columns are filled
+        safely in the header row only so existing user data is not disturbed.
 
         Raises:
             RuntimeError: If headers cannot be read/written or are invalid.
@@ -139,39 +143,50 @@ class GoogleSheetsDB:
         except Exception as exc:
             raise RuntimeError("Failed to read header row from Google Sheets.") from exc
 
-        if not first_row:
+        trimmed_headers = [str(value).strip() for value in first_row]
+
+        if not trimmed_headers or not any(trimmed_headers):
             try:
                 self.worksheet.update("A1:F1", [SHEET_HEADERS])
             except Exception as exc:
                 raise RuntimeError("Failed to write required headers to Google Sheets.") from exc
             return
 
-        normalized_headers = [value.strip() for value in first_row]
-        previous_headers = SHEET_HEADERS[:-1]
+        normalized_headers = [self._normalize_header_value(value) for value in trimmed_headers]
+        expected_normalized = [header.lower() for header in SHEET_HEADERS]
 
-        if normalized_headers[: len(SHEET_HEADERS)] == SHEET_HEADERS:
-            return
+        matched_prefix_length = 0
+        for current, expected in zip(normalized_headers, expected_normalized):
+            if current != expected:
+                break
+            matched_prefix_length += 1
 
-        if normalized_headers[: len(previous_headers)] == previous_headers:
-            current_whitelist_header = (
-                normalized_headers[len(previous_headers)]
-                if len(normalized_headers) >= len(SHEET_HEADERS)
-                else ""
+        if matched_prefix_length < 4:
+            raise RuntimeError(
+                "Google Sheet headers do not match the required schema. "
+                f"Expected {SHEET_HEADERS}, found {first_row}."
             )
-            if current_whitelist_header == SHEET_HEADERS[-1]:
-                return
-            try:
-                self.worksheet.update_cell(1, len(SHEET_HEADERS), SHEET_HEADERS[-1])
-            except Exception as exc:
-                raise RuntimeError(
-                    "Failed to append the whitelist header to Google Sheets."
-                ) from exc
-            return
 
-        raise RuntimeError(
-            "Google Sheet headers do not match the required schema. "
-            f"Expected {SHEET_HEADERS}, found {first_row}."
-        )
+        normalized_target = list(trimmed_headers)
+
+        if len(normalized_target) < len(SHEET_HEADERS):
+            normalized_target.extend([""] * (len(SHEET_HEADERS) - len(normalized_target)))
+
+        for index, header in enumerate(SHEET_HEADERS):
+            if index < matched_prefix_length:
+                if normalized_target[index] != header:
+                    normalized_target[index] = header
+            else:
+                normalized_target[index] = header
+
+        if normalized_target[: len(SHEET_HEADERS)] != SHEET_HEADERS:
+            normalized_target[: len(SHEET_HEADERS)] = SHEET_HEADERS
+
+        if trimmed_headers[: len(SHEET_HEADERS)] != SHEET_HEADERS:
+            try:
+                self.worksheet.update("A1:F1", [SHEET_HEADERS])
+            except Exception as exc:
+                raise RuntimeError("Failed to normalize headers in Google Sheets.") from exc
 
     def _pad_row(self, row: list[Any]) -> list[str]:
         """Pad a row to the current schema width without losing old data."""
