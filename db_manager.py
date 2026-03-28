@@ -10,6 +10,8 @@ Expected column order in the sheet:
 - user_agent
 - last_run
 - whitelist
+- speed_mode
+- is_hunting
 """
 
 from __future__ import annotations
@@ -34,6 +36,8 @@ SHEET_HEADERS: list[str] = [
     "user_agent",
     "last_run",
     "whitelist",
+    "speed_mode",
+    "is_hunting",
 ]
 
 
@@ -47,6 +51,8 @@ class UserRecord:
     user_agent: str
     last_run: str = ""
     whitelist: str = ""
+    speed_mode: str = "normal"
+    is_hunting: str = "false"
 
 
 class GoogleSheetsDB:
@@ -147,7 +153,7 @@ class GoogleSheetsDB:
 
         if not trimmed_headers or not any(trimmed_headers):
             try:
-                self.worksheet.update("A1:F1", [SHEET_HEADERS])
+                self.worksheet.update("A1:H1", [SHEET_HEADERS])
             except Exception as exc:
                 raise RuntimeError("Failed to write required headers to Google Sheets.") from exc
             return
@@ -184,7 +190,7 @@ class GoogleSheetsDB:
 
         if trimmed_headers[: len(SHEET_HEADERS)] != SHEET_HEADERS:
             try:
-                self.worksheet.update("A1:F1", [SHEET_HEADERS])
+                self.worksheet.update("A1:H1", [SHEET_HEADERS])
             except Exception as exc:
                 raise RuntimeError("Failed to normalize headers in Google Sheets.") from exc
 
@@ -245,6 +251,8 @@ class GoogleSheetsDB:
                     user_agent=str(padded_row[3]),
                     last_run=str(padded_row[4]).strip(),
                     whitelist=str(padded_row[5]).strip(),
+                    speed_mode=str(padded_row[6]).strip() or "normal",
+                    is_hunting=str(padded_row[7]).strip() or "false",
                 )
 
         return None
@@ -257,6 +265,8 @@ class GoogleSheetsDB:
         user_agent: str,
         last_run: str | None = None,
         whitelist: str = "",
+        speed_mode: str = "normal",
+        is_hunting: str = "false",
     ) -> UserRecord:
         """Insert or update a user row identified by telegram_id.
 
@@ -267,6 +277,8 @@ class GoogleSheetsDB:
             user_agent: Stored Instagram mobile user-agent.
             last_run: Optional last execution timestamp.
             whitelist: Comma-separated Instagram account IDs to exclude.
+            speed_mode: Cleanup speed mode preference.
+            is_hunting: String flag indicating whether a hunt is active.
 
         Returns:
             The inserted or updated UserRecord.
@@ -281,6 +293,8 @@ class GoogleSheetsDB:
             user_agent=user_agent.strip(),
             last_run=(last_run or "").strip(),
             whitelist=whitelist.strip(),
+            speed_mode=(speed_mode or "normal").strip().lower(),
+            is_hunting=(is_hunting or "false").strip().lower(),
         )
 
         try:
@@ -304,11 +318,13 @@ class GoogleSheetsDB:
             record.user_agent,
             record.last_run,
             record.whitelist,
+            record.speed_mode,
+            record.is_hunting,
         ]
 
         try:
             if target_row_index is not None:
-                self.worksheet.update(f"A{target_row_index}:F{target_row_index}", [row_values])
+                self.worksheet.update(f"A{target_row_index}:H{target_row_index}", [row_values])
             else:
                 self.worksheet.append_row(row_values, value_input_option="RAW")
         except Exception as exc:

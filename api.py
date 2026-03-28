@@ -229,7 +229,7 @@ async def send_telegram_message(chat_id: str, text: str) -> bool:
         return False
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -292,7 +292,10 @@ async def register(
 
     await send_telegram_message(chat_id=payload.t_id, text="✅ Registration Successful!")
 
-    success_html = """
+    bot_username = os.getenv("TELEGRAM_BOT_USERNAME", "YourBotUsername").strip() or "YourBotUsername"
+    telegram_deep_link = f"https://t.me/{bot_username}"
+
+    success_html = f"""
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
     <head>
@@ -300,7 +303,7 @@ async def register(
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>تم الربط بنجاح</title>
         <style>
-            :root {
+            :root {{
                 color-scheme: light;
                 --bg-a: #f5f3ff;
                 --bg-b: #eff6ff;
@@ -314,22 +317,25 @@ async def register(
                 --success: #059669;
                 --success-soft: #ecfdf5;
                 --success-border: #a7f3d0;
+                --success-deep: #047857;
                 --info-soft: #eff6ff;
                 --info-border: #bfdbfe;
                 --warning-bg: #fff7ed;
                 --warning-border: #fdba74;
                 --border: #e2e8f0;
                 --shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
-            }
+            }}
 
-            * {
+            * {{
                 box-sizing: border-box;
-            }
+            }}
 
-            body {
+            body {{
                 margin: 0;
                 min-height: 100vh;
-                font-family: Arial, sans-serif;
+                font-family: "Segoe UI", "Tahoma", Arial, sans-serif;
+                direction: rtl;
+                text-align: right;
                 background:
                     radial-gradient(circle at top right, rgba(124, 58, 237, 0.16), transparent 28%),
                     radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 30%),
@@ -339,30 +345,96 @@ async def register(
                 justify-content: center;
                 padding: 24px;
                 color: var(--text-main);
-            }
+                overflow-x: hidden;
+            }}
 
-            .wrapper {
+            .wrapper,
+            .card,
+            .hero-copy,
+            .lead,
+            .step-card,
+            .feature-card,
+            .highlight-box,
+            .info-panel,
+            .note,
+            .footer-box,
+            .tips,
+            .tip {{
+                direction: rtl;
+                text-align: right;
+            }}
+
+            .card,
+            .step-card,
+            .feature-card,
+            .highlight-box,
+            .info-panel,
+            .note,
+            .footer-box {{
+                animation: fadeInUp 0.85s ease both;
+            }}
+
+            body::before,
+            body::after {{
+                content: "";
+                position: fixed;
+                width: 220px;
+                height: 220px;
+                border-radius: 999px;
+                filter: blur(26px);
+                opacity: 0.35;
+                z-index: 0;
+                pointer-events: none;
+                animation: floatBlob 9s ease-in-out infinite;
+            }}
+
+            body::before {{
+                top: -60px;
+                right: -40px;
+                background: rgba(124, 58, 237, 0.3);
+            }}
+
+            body::after {{
+                bottom: -70px;
+                left: -30px;
+                background: rgba(34, 197, 94, 0.24);
+                animation-delay: -3s;
+            }}
+
+            .wrapper {{
                 width: 100%;
                 max-width: 920px;
-            }
+                position: relative;
+                z-index: 1;
+            }}
 
-            .card {
+            .card {{
                 background: var(--card-bg);
                 border: 1px solid rgba(255, 255, 255, 0.92);
                 border-radius: 30px;
                 padding: 32px 26px 24px;
                 box-shadow: var(--shadow);
                 backdrop-filter: blur(10px);
-            }
+                position: relative;
+                overflow: hidden;
+            }}
 
-            .hero {
+            .card::after {{
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(135deg, rgba(124, 58, 237, 0.04), rgba(59, 130, 246, 0.02));
+                pointer-events: none;
+            }}
+
+            .hero {{
                 display: grid;
                 grid-template-columns: 92px 1fr;
                 gap: 18px;
                 align-items: start;
-            }
+            }}
 
-            .hero-icon {
+            .hero-icon {{
                 width: 92px;
                 height: 92px;
                 border-radius: 26px;
@@ -373,59 +445,155 @@ async def register(
                 justify-content: center;
                 font-size: 44px;
                 box-shadow: 0 16px 32px rgba(34, 197, 94, 0.24);
-            }
+                animation: popIn 0.75s cubic-bezier(.2,.9,.2,1) both;
+            }}
 
-            .badge {
+            .hero-copy {{
+                position: relative;
+            }}
+
+            .success-state {{
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 16px;
+                padding: 6px;
+                border-radius: 999px;
+                animation: successReveal 0.95s cubic-bezier(.2,.9,.2,1) both;
+            }}
+
+            .success-state .badge {{
+                animation: fadeInUp 1s ease both 0.15s;
+            }}
+
+            .success-state::before {{
+                content: "";
+                position: absolute;
+                inset: -6px;
+                border-radius: inherit;
+                background: linear-gradient(120deg, rgba(255, 255, 255, 0) 20%, rgba(255, 255, 255, 0.78) 50%, rgba(255, 255, 255, 0) 80%);
+                transform: translateX(-170%) skewX(-18deg);
+                animation: successShimmer 2.2s ease 0.55s 1 forwards;
+                pointer-events: none;
+            }}
+
+            .check-pulse {{
+                width: 54px;
+                height: 54px;
+                border-radius: 999px;
+                background: radial-gradient(circle at 30% 30%, #34d399, #10b981 62%, #059669 100%);
+                color: #ffffff;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                box-shadow: 0 14px 28px rgba(5, 150, 105, 0.28);
+                position: relative;
+                flex-shrink: 0;
+                animation: checkPulse 1.8s ease-in-out infinite 0.85s;
+            }}
+
+            .check-pulse::before,
+            .check-pulse::after {{
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                border: 2px solid rgba(16, 185, 129, 0.28);
+                opacity: 0;
+            }}
+
+            .check-pulse::before {{
+                animation: ringPulse 2.2s ease-out infinite 0.9s;
+            }}
+
+            .check-pulse::after {{
+                animation: ringPulse 2.2s ease-out infinite 1.35s;
+            }}
+
+            .badge {{
+                position: relative;
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
-                background: var(--success-soft);
-                color: var(--success);
+                background: linear-gradient(135deg, var(--success-soft), #ffffff);
+                color: var(--success-deep);
                 border: 1px solid var(--success-border);
                 border-radius: 999px;
-                padding: 8px 14px;
-                font-size: 14px;
+                padding: 10px 16px;
+                font-size: 15px;
                 font-weight: bold;
-                margin-bottom: 14px;
-            }
+                animation: badgeLift 0.9s ease both 0.18s;
+                transform-origin: center;
+                overflow: hidden;
+            }}
 
-            h1 {
+            .badge::after {{
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(115deg, transparent 25%, rgba(255, 255, 255, 0.68) 50%, transparent 75%);
+                transform: translateX(-140%);
+                animation: badgeShimmer 2.4s ease-in-out 0.85s infinite;
+                pointer-events: none;
+            }}
+
+            .badge-dot {{
+                width: 10px;
+                height: 10px;
+                border-radius: 999px;
+                background: currentColor;
+                box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.35);
+                animation: pingDot 1.8s ease-out infinite;
+            }}
+
+            h1 {{
                 margin: 0 0 10px;
                 font-size: 31px;
                 line-height: 1.4;
-            }
+                animation: slideFade 0.9s ease both 0.28s;
+            }}
 
-            .lead {
+            .lead {{
                 margin: 0;
                 font-size: 17px;
                 line-height: 1.9;
                 color: var(--text-muted);
-            }
+                animation: slideFade 1s ease both 0.4s;
+            }}
 
-            .section-title {
+            .section-title {{
                 margin: 28px 0 14px;
                 font-size: 20px;
                 color: var(--text-main);
-            }
+            }}
 
             .steps,
-            .features {
+            .features {{
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
                 gap: 14px;
-            }
+            }}
 
             .step-card,
-            .feature-card {
+            .feature-card {{
                 background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
                 border: 1px solid #dbeafe;
                 border-radius: 20px;
                 padding: 18px 16px;
                 box-shadow: 0 10px 24px rgba(59, 130, 246, 0.08);
-            }
+                transition: transform 0.25s ease, box-shadow 0.25s ease;
+            }}
+
+            .step-card:hover,
+            .feature-card:hover {{
+                transform: translateY(-3px);
+                box-shadow: 0 14px 28px rgba(59, 130, 246, 0.12);
+            }}
 
             .step-number,
-            .feature-icon {
+            .feature-icon {{
                 width: 36px;
                 height: 36px;
                 border-radius: 12px;
@@ -436,48 +604,48 @@ async def register(
                 justify-content: center;
                 font-weight: bold;
                 margin-bottom: 12px;
-            }
+            }}
 
-            .feature-icon {
+            .feature-icon {{
                 font-size: 18px;
-            }
+            }}
 
             .step-card h3,
-            .feature-card h3 {
+            .feature-card h3 {{
                 margin: 0 0 8px;
                 font-size: 17px;
-            }
+            }}
 
             .step-card p,
-            .feature-card p {
+            .feature-card p {{
                 margin: 0;
                 font-size: 14px;
                 line-height: 1.9;
                 color: var(--text-muted);
-            }
+            }}
 
-            .highlight-box {
+            .highlight-box {{
                 margin-top: 22px;
                 background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(59, 130, 246, 0.08));
                 border: 1px solid rgba(124, 58, 237, 0.16);
                 border-radius: 22px;
                 padding: 18px 16px;
-            }
+            }}
 
-            .highlight-box h3 {
+            .highlight-box h3 {{
                 margin: 0 0 8px;
                 font-size: 18px;
                 color: var(--primary-deep);
-            }
+            }}
 
-            .highlight-box p {
+            .highlight-box p {{
                 margin: 0;
                 font-size: 15px;
                 line-height: 1.9;
                 color: var(--text-muted);
-            }
+            }}
 
-            .progress-preview {
+            .progress-preview {{
                 margin-top: 12px;
                 display: inline-flex;
                 align-items: center;
@@ -490,9 +658,9 @@ async def register(
                 font-weight: bold;
                 font-size: 14px;
                 direction: ltr;
-            }
+            }}
 
-            .info-panel {
+            .info-panel {{
                 margin-top: 22px;
                 background: var(--info-soft);
                 border: 1px solid var(--info-border);
@@ -501,9 +669,9 @@ async def register(
                 font-size: 15px;
                 line-height: 1.9;
                 color: #1e3a8a;
-            }
+            }}
 
-            .note {
+            .note {{
                 margin-top: 22px;
                 background: var(--warning-bg);
                 border: 1px solid var(--warning-border);
@@ -512,9 +680,9 @@ async def register(
                 font-size: 15px;
                 line-height: 1.9;
                 color: #7c2d12;
-            }
+            }}
 
-            .footer-box {
+            .footer-box {{
                 margin-top: 18px;
                 background: #f8fafc;
                 border: 1px dashed var(--border);
@@ -523,63 +691,247 @@ async def register(
                 font-size: 14px;
                 line-height: 1.9;
                 color: var(--text-muted);
-            }
+            }}
 
-            .tips {
+            .tips {{
                 margin-top: 22px;
                 display: flex;
                 flex-wrap: wrap;
                 gap: 10px;
-            }
+            }}
 
-            .tip {
+            .tip {{
                 background: #ffffff;
                 border: 1px solid var(--border);
                 border-radius: 999px;
                 padding: 10px 14px;
                 font-size: 13px;
                 color: #334155;
-            }
+            }}
 
-            strong {
+            .fab {{
+                position: fixed;
+                left: 22px;
+                bottom: 22px;
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #7c3aed, #4f46e5);
+                color: #ffffff;
+                text-decoration: none;
+                border-radius: 999px;
+                padding: 15px 18px;
+                box-shadow: 0 18px 30px rgba(79, 70, 229, 0.32);
+                font-weight: bold;
+                z-index: 9;
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+                animation: popIn 0.95s ease both 0.2s;
+            }}
+
+            .fab:hover {{
+                transform: translateY(-2px) scale(1.01);
+                box-shadow: 0 22px 36px rgba(79, 70, 229, 0.38);
+            }}
+
+            .fab-icon {{
+                width: 34px;
+                height: 34px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.18);
+                font-size: 18px;
+            }}
+
+            strong {{
                 color: var(--text-main);
-            }
+            }}
 
-            @media (max-width: 640px) {
-                body {
+            @keyframes slideFade {{
+                from {{
+                    opacity: 0;
+                    transform: translateY(10px);
+                }}
+                to {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
+            }}
+
+            @keyframes fadeInUp {{
+                from {{
+                    opacity: 0;
+                    transform: translateY(14px);
+                }}
+                to {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
+            }}
+
+            @keyframes popIn {{
+                0% {{
+                    opacity: 0;
+                    transform: scale(0.82);
+                }}
+                70% {{
+                    opacity: 1;
+                    transform: scale(1.04);
+                }}
+                100% {{
+                    opacity: 1;
+                    transform: scale(1);
+                }}
+            }}
+
+            @keyframes successReveal {{
+                0% {{
+                    opacity: 0;
+                    transform: translateY(12px) scale(0.96);
+                }}
+                70% {{
+                    opacity: 1;
+                    transform: translateY(-1px) scale(1.01);
+                }}
+                100% {{
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }}
+            }}
+
+            @keyframes checkPulse {{
+                0%, 100% {{
+                    transform: scale(1);
+                    box-shadow: 0 14px 28px rgba(5, 150, 105, 0.26);
+                }}
+                50% {{
+                    transform: scale(1.06);
+                    box-shadow: 0 18px 34px rgba(5, 150, 105, 0.34);
+                }}
+            }}
+
+            @keyframes ringPulse {{
+                0% {{
+                    opacity: 0.42;
+                    transform: scale(1);
+                }}
+                100% {{
+                    opacity: 0;
+                    transform: scale(1.85);
+                }}
+            }}
+
+            @keyframes badgeLift {{
+                from {{
+                    opacity: 0;
+                    transform: translateY(8px);
+                }}
+                to {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
+            }}
+
+            @keyframes badgeShimmer {{
+                0% {{
+                    transform: translateX(-140%);
+                }}
+                55%,
+                100% {{
+                    transform: translateX(170%);
+                }}
+            }}
+
+            @keyframes successShimmer {{
+                0% {{
+                    opacity: 0;
+                    transform: translateX(-170%) skewX(-18deg);
+                }}
+                20% {{
+                    opacity: 1;
+                }}
+                100% {{
+                    opacity: 0;
+                    transform: translateX(170%) skewX(-18deg);
+                }}
+            }}
+
+            @keyframes pingDot {{
+                0% {{
+                    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.32);
+                }}
+                80% {{
+                    box-shadow: 0 0 0 10px rgba(5, 150, 105, 0);
+                }}
+                100% {{
+                    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
+                }}
+            }}
+
+            @keyframes floatBlob {{
+                0%, 100% {{
+                    transform: translateY(0px);
+                }}
+                50% {{
+                    transform: translateY(14px);
+                }}
+            }}
+
+            @media (max-width: 640px) {{
+                body {{
                     padding: 16px;
-                }
+                }}
 
-                .card {
+                .card {{
                     padding: 24px 18px 20px;
                     border-radius: 24px;
-                }
+                }}
 
-                .hero {
+                .hero {{
                     grid-template-columns: 1fr;
-                }
+                }}
 
-                .hero-icon {
+                .hero-icon {{
                     width: 78px;
                     height: 78px;
                     font-size: 36px;
-                }
+                }}
 
-                h1 {
+                .success-state {{
+                    width: 100%;
+                    align-items: center;
+                    justify-content: flex-start;
+                }}
+
+                .check-pulse {{
+                    width: 48px;
+                    height: 48px;
+                    font-size: 22px;
+                }}
+
+                h1 {{
                     font-size: 27px;
-                }
+                }}
 
-                .lead {
+                .lead {{
                     font-size: 16px;
-                }
+                }}
 
-                .progress-preview {
+                .progress-preview {{
                     width: 100%;
                     justify-content: center;
                     text-align: center;
                     flex-wrap: wrap;
-                }
-            }
+                }}
+
+                .fab {{
+                    left: 16px;
+                    right: 16px;
+                    bottom: 16px;
+                    justify-content: center;
+                }}
+            }}
         </style>
     </head>
     <body>
@@ -587,8 +939,11 @@ async def register(
             <section class="card">
                 <div class="hero">
                     <div class="hero-icon" aria-hidden="true">🎉</div>
-                    <div>
-                        <div class="badge">✅ تم حفظ الجلسة بنجاح</div>
+                    <div class="hero-copy">
+                        <div class="success-state" aria-label="تم حفظ الجلسة بنجاح">
+                            <span class="check-pulse" aria-hidden="true">✓</span>
+                            <div class="badge"><span class="badge-dot"></span> ✅ تم حفظ الجلسة بنجاح</div>
+                        </div>
                         <h1>تم ربط حساب إنستجرام بنجاح</h1>
                         <p class="lead">
                             تم التحقق من الجلسة الخاصة بك وحفظها داخل النظام بنجاح. الآن يمكنك الرجوع إلى تيليجرام
@@ -682,6 +1037,11 @@ async def register(
                 </div>
             </section>
         </main>
+
+        <a class="fab" href="tg://resolve?domain={bot_username}" aria-label="العودة إلى تيليجرام">
+            <span class="fab-icon">↩️</span>
+            <span>العودة إلى تيليجرام 📲</span>
+        </a>
     </body>
     </html>
     """
